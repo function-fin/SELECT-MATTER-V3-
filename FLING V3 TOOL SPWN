@@ -1,15 +1,22 @@
--- [[ PROJETO KILL V4 - MULTI-SELECTION (FORCE INJECTED - OMNI ORBIT) ]] --
+-- ============================================
+-- PROJETO KILL V4 - MULTI-SELECTION (OMNI ORBIT) - ADAPTADO PARA PROJECT BACKPACK
+-- ============================================
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local lp = Players.LocalPlayer
 local character = lp.Character or lp.CharacterAdded:Wait()
 local camera = Workspace.CurrentCamera
-local mouse = lp:GetMouse()
+
+lp.CharacterAdded:Connect(function(newChar)
+    character = newChar
+end)
 
 -- --- VARIÁVEIS DE ESTADO ---
-local objetosSelecionados = {} -- Tabela para armazenar múltiplos objetos
+local modoAtivo = false
+local objetosSelecionados = {}
 local conexaoAtaque = nil
 
 -- --- TRANCAR AUTORIDADE DE REDE (SIMULATION RADIUS MÁXIMO) ---
@@ -25,13 +32,61 @@ if sethp then
     end)
 end
 
--- --- CRIAÇÃO DA TOOL ---
-local tool = Instance.new("Tool")
-tool.Name = "SELECT MATTER V4"
-tool.RequiresHandle = false
-tool.Parent = lp:WaitForChild("Backpack")
+-- --- CRIAÇÃO DO BOTÃO UI DA TOOL ---
+local actionButton = Instance.new("TextButton")
+actionButton.Name = "SelectMatterV4Button"
+actionButton.Size = UDim2.new(0, 65, 0, 65)
+actionButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+actionButton.BackgroundTransparency = 0
+actionButton.BorderSizePixel = 0
+actionButton.Text = "SELECT\nMATTER V4"
+actionButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+actionButton.TextTransparency = 0
+actionButton.Font = Enum.Font.Arcade
+actionButton.TextScaled = true
+actionButton.TextWrapped = true
 
--- --- INJEÇÃO DOS MOTORES DE FORÇA BRUTA (MÉTODO FLING BALL) ---
+local uiPadding = Instance.new("UIPadding")
+uiPadding.PaddingTop = UDim.new(0.08, 0)
+uiPadding.PaddingBottom = UDim.new(0.08, 0)
+uiPadding.PaddingLeft = UDim.new(0.08, 0)
+uiPadding.PaddingRight = UDim.new(0.08, 0)
+uiPadding.Parent = actionButton
+
+local uiStroke = Instance.new("UIStroke")
+uiStroke.Color = Color3.fromRGB(255, 255, 255)
+uiStroke.Thickness = 3
+uiStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+uiStroke.LineJoinMode = Enum.LineJoinMode.Miter
+uiStroke.Parent = actionButton
+
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 2)
+uiCorner.Parent = actionButton
+
+-- --- FUNÇÃO PARA ATUALIZAR TEXTO DO BOTÃO ---
+local function atualizarTexto()
+    if #objetosSelecionados > 0 then
+        actionButton.Text = "DESTROY\n(" .. #objetosSelecionados .. ")"
+    else
+        actionButton.Text = "SELECT\nMATTER V4"
+    end
+end
+
+-- --- RESETAR ESTADO E LIMPAR SELEÇÃO ---
+local function resetarEstado()
+    if conexaoAtaque then
+        conexaoAtaque:Disconnect()
+        conexaoAtaque = nil
+    end
+    objetosSelecionados = {}
+    modoAtivo = false
+    actionButton.BackgroundTransparency = 0
+    actionButton.TextTransparency = 0
+    atualizarTexto()
+end
+
+-- --- INJEÇÃO DOS MOTORES DE FORÇA BRUTA (FLING BALL) ---
 local function aplicarMotoresFling(corpo)
     for _, child in pairs(corpo:GetChildren()) do
         if child:IsA("BodyVelocity") or child:IsA("BodyAngularVelocity") or child.Name == "BobsledSpinMotor" then
@@ -41,11 +96,10 @@ local function aplicarMotoresFling(corpo)
 
     corpo.CanCollide = true
     corpo.Massless = false
-
     corpo.CustomPhysicalProperties = PhysicalProperties.new(100, 100, 0, 100, 100)
+    
     local forcaMassiva = Vector3.new(math.huge * math.huge, math.huge * math.huge, math.huge * math.huge)
 
-    -- 1. MOTOR LINEAR
     local velocity = Instance.new("BodyVelocity")
     velocity.Name = "FlingPowerLinear"
     velocity.Velocity = Vector3.new(999999, 999999, 999999)
@@ -53,7 +107,6 @@ local function aplicarMotoresFling(corpo)
     velocity.P = math.huge
     velocity.Parent = corpo  
 
-    -- 2. MOTOR ANGULAR
     local angularVelocity = Instance.new("BodyAngularVelocity")
     angularVelocity.Name = "FlingPowerAngular"
     angularVelocity.AngularVelocity = Vector3.new(999999, 999999, 999999)
@@ -62,32 +115,23 @@ local function aplicarMotoresFling(corpo)
     angularVelocity.Parent = corpo
 end
 
--- --- MÓDULO 5: SEAT-HOPPING DINÂMICO (PEGA A POSIÇÃO ATUAL DO ASSENTO) ---
+-- --- SEAT-HOPPING DINÂMICO (BYPASS NETWORK OWNERSHIP) ---
 local function executarBypassNetworkOwnership(assentoAlvo)
-    local meuHRP = character:FindFirstChild("HumanoidRootPart")
-    local meuHum = character:FindFirstChildOfClass("Humanoid")
+    local meuHRP = character and character:FindFirstChild("HumanoidRootPart")
+    local meuHum = character and character:FindFirstChildOfClass("Humanoid")
     if not meuHRP or not meuHum or not assentoAlvo then return end
 
-    -- Salva o ponto seguro onde você estava antes do clique
     local posicaoOriginal = meuHRP.CFrame
 
-    print("⚡ [CUBNIT] Passo 1: Teletransportando para a posição ATUAL do assento...")
     meuHRP.CFrame = assentoAlvo.CFrame
-    
-    -- PASSO 1: Tempo necessário para o motor sincronizar e herdar o controle físico
     task.wait(0.5) 
 
-    print("⚡ [CUBNIT] Passo 2: Forçando saída mecânica do veículo...")
     meuHum.Sit = false
-    meuHum.Jump = true -- Destrói a solda interna nativa do Roblox
-    
-    -- Move o personagem para cima para sair completamente da hitbox do helicóptero
+    meuHum.Jump = true
     meuHRP.CFrame = assentoAlvo.CFrame + Vector3.new(0, 8, 0) 
     
-    -- PASSO 2: Tempo de espera para o servidor confirmar que você se desvinculou do assento
     task.wait(0.3) 
 
-    print("✅ [CUBNIT] Passo 3: Retornando em segurança para a posição de origem.")
     meuHRP.CFrame = posicaoOriginal
 end
 
@@ -96,13 +140,10 @@ local function iniciarAtaqueMassa(alvoPlayer)
     local alvoChar = alvoPlayer.Character
     if not alvoChar or not alvoChar:FindFirstChild("HumanoidRootPart") then return end
 
-    local alvoHRP = alvoChar.HumanoidRootPart
     local alvoHum = alvoChar.Humanoid
-    local meuHRP = character:FindFirstChild("HumanoidRootPart")
+    local meuHRP = character and character:FindFirstChild("HumanoidRootPart")
 
     if not meuHRP or #objetosSelecionados == 0 then return end
-
-    print("⚔️ INJETANDO MULTI-FLING EM: " .. alvoPlayer.Name .. " COM " .. #objetosSelecionados .. " OBJETOS.")
 
     for _, objeto in pairs(objetosSelecionados) do
         if objeto and objeto.Parent then
@@ -125,10 +166,7 @@ local function iniciarAtaqueMassa(alvoPlayer)
 
     conexaoAtaque = RunService.Heartbeat:Connect(function()
         if not alvoChar.Parent or alvoHum.Health <= 0 or #objetosSelecionados == 0 then
-            if conexaoAtaque then conexaoAtaque:Disconnect() end
-            print("💥 Alvo neutralizado ou lista vazia. Resetando.")
-            objetosSelecionados = {}
-            tool.Name = "SELECT MATTER V3"
+            resetarEstado()
             return
         end
 
@@ -137,8 +175,8 @@ local function iniciarAtaqueMassa(alvoPlayer)
 
         if p then
             local offsetCurto = Vector3.new(0, 0, 0)
-            if p.Velocity.Magnitude > 0.1 then
-                offsetCurto = p.Velocity.Unit * 0.8
+            if p.AssemblyLinearVelocity.Magnitude > 0.1 then
+                offsetCurto = p.AssemblyLinearVelocity.Unit * 0.8
             end
 
             local tempo = tick() * 45 
@@ -160,11 +198,11 @@ local function iniciarAtaqueMassa(alvoPlayer)
                     local direcaoGiro = CFrame.Angles(math.sin(tempo) * 3, math.cos(tempo) * 3, math.sin(tempo * 2) * 3)
 
                     objeto.CFrame = CFrame.new(posicaoFinal) * direcaoGiro
-
                     objeto.Velocity = Vector3.new(999999, 999999, 999999)
                     objeto.RotVelocity = Vector3.new(999999, 999999, 999999)
                 else
                     table.remove(objetosSelecionados, i)
+                    atualizarTexto()
                 end
             end
         end
@@ -174,85 +212,112 @@ local function iniciarAtaqueMassa(alvoPlayer)
     end)
 end
 
--- --- GATILHO DE RECONHECIMENTO E SELEÇÃO ---
-tool.Activated:Connect(function()
-    local unitRay = camera:ScreenPointToRay(mouse.X, mouse.Y)
-    local raycastParams = RaycastParams.new()
-    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-    raycastParams.FilterDescendantsInstances = {character}
+-- --- CLIQUE NO BOTÃO DA UI (DESATIVAR MANUALMENTE) ---
+actionButton.MouseButton1Click:Connect(function()
+    if _G.ScriptAdapter and _G.ScriptAdapter.MainPanel and _G.ScriptAdapter.MainPanel.Visible then
+        return
+    end
 
-    local raycastResult = Workspace:Raycast(unitRay.Origin, unitRay.Direction * 50000, raycastParams)
+    if modoAtivo then
+        resetarEstado()
+    else
+        modoAtivo = true
+        actionButton.BackgroundTransparency = 0.45
+        actionButton.TextTransparency = 0.2
+    end
+end)
 
-    if raycastResult and raycastResult.Instance then
-        local hitPart = raycastResult.Instance
-        local model = hitPart:FindFirstAncestorOfClass("Model")
+-- --- CAPTURA DE CLIQUES NO MUNDO ---
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed or not modoAtivo then return end
 
-        -- CONDICIONAL: É um jogador?
-        if model and model:FindFirstChild("Humanoid") then
-            local tPlayer = Players:GetPlayerFromCharacter(model)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        local pos = input.Position
+        local unitRay = camera:ScreenPointToRay(pos.X, pos.Y)
 
-            if tPlayer and tPlayer ~= lp then
-                if #objetosSelecionados > 0 then
-                    if conexaoAtaque then conexaoAtaque:Disconnect() end
-                    iniciarAtaqueMassa(tPlayer)
-                else
-                    warn("❌ Nenhuma matéria selecionada ainda! Clique em objetos físicos primeiro.")
-                end
-            end
-        else
-            -- CONDICIONAL: É um objeto/veículo
-            local alvoFisico = nil
-            local modeloVeiculo = hitPart:FindFirstAncestorOfClass("Model") or hitPart
+        local raycastParams = RaycastParams.new()
+        raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+        raycastParams.FilterDescendantsInstances = {character}
 
-            if hitPart.Anchored == false then
-                if hitPart:IsA("BasePart") then
-                    alvoFisico = hitPart
-                elseif modeloVeiculo:IsA("Model") and modeloVeiculo.PrimaryPart then
-                    alvoFisico = modeloVeiculo.PrimaryPart
-                else
-                    alvoFisico = hitPart
-                end
-            end
+        local raycastResult = Workspace:Raycast(unitRay.Origin, unitRay.Direction * 50000, raycastParams)
 
-            if alvoFisico then
-                if not table.find(objetosSelecionados, alvoFisico) then
-                    table.insert(objetosSelecionados, alvoFisico)
-                    print("➕ MATÉRIA ADICIONADA: " .. alvoFisico.Name .. " (Total: " .. #objetosSelecionados .. ")")
-                    tool.Name = "DESTROY " .. #objetosSelecionados
+        if raycastResult and raycastResult.Instance then
+            local hitPart = raycastResult.Instance
+            local model = hitPart:FindFirstAncestorOfClass("Model")
 
-                    -- [CORREÇÃO DE INSTÂNCIA EXCLUSIVA]: Procura o assento apenas dentro do modelo isolado que você clicou
-                    local assentoEncontrado = nil
-                    if modeloVeiculo then
-                        assentoEncontrado = modeloVeiculo:FindFirstChildOfClass("VehicleSeat") or modeloVeiculo:FindFirstChild("PilotSeat", true)
+            -- CASO 1: Clicar em um jogador inimigo (Executar Ataque)
+            if model and model:FindFirstChild("Humanoid") then
+                local tPlayer = Players:GetPlayerFromCharacter(model)
+
+                if tPlayer and tPlayer ~= lp then
+                    if #objetosSelecionados > 0 then
+                        if conexaoAtaque then conexaoAtaque:Disconnect() end
+                        iniciarAtaqueMassa(tPlayer)
                     end
-                    
-                    -- Se o objeto não for um modelo direto mas fizer parte da hierarquia de Helicópteros, isola o pai correto
-                    if not assentoEncontrado and hitPart:FindFirstAncestor("Helicopters") then
-                        local modeloPaiDireto = hitPart:FindFirstAncestor("ChinookRescue") or hitPart.Parent
-                        if modeloPaiDireto then
-                            assentoEncontrado = modeloPaiDireto:FindFirstChild("PilotSeat", true) or modeloPaiDireto:FindFirstChildOfClass("VehicleSeat")
+                end
+
+            -- CASO 2: Clicar em objetos/veículos físicos (Adicionar à lista sem cancelar seleção anterior)
+            else
+                local alvoFisico = nil
+                local modeloVeiculo = hitPart:FindFirstAncestorOfClass("Model") or hitPart
+
+                if hitPart.Anchored == false then
+                    if hitPart:IsA("BasePart") then
+                        alvoFisico = hitPart
+                    elseif modeloVeiculo:IsA("Model") and modeloVeiculo.PrimaryPart then
+                        alvoFisico = modeloVeiculo.PrimaryPart
+                    else
+                        alvoFisico = hitPart
+                    end
+                end
+
+                if alvoFisico then
+                    if not table.find(objetosSelecionados, alvoFisico) then
+                        table.insert(objetosSelecionados, alvoFisico)
+                        atualizarTexto()
+
+                        local assentoEncontrado = nil
+                        if modeloVeiculo then
+                            assentoEncontrado = modeloVeiculo:FindFirstChildOfClass("VehicleSeat") or modeloVeiculo:FindFirstChild("PilotSeat", true)
+                        end
+                        
+                        if not assentoEncontrado and hitPart:FindFirstAncestor("Helicopters") then
+                            local modeloPaiDireto = hitPart:FindFirstAncestor("ChinookRescue") or hitPart.Parent
+                            if modeloPaiDireto then
+                                assentoEncontrado = modeloPaiDireto:FindFirstChild("PilotSeat", true) or modeloPaiDireto:FindFirstChildOfClass("VehicleSeat")
+                            end
+                        end
+
+                        if assentoEncontrado and assentoEncontrado:IsA("BasePart") then
+                            executarBypassNetworkOwnership(assentoEncontrado)
                         end
                     end
-
-                    -- Se encontrou o assento pertencente unicamente àquela cópia, executa o bypass
-                    if assentoEncontrado and assentoEncontrado:IsA("BasePart") then
-                        executarBypassNetworkOwnership(assentoEncontrado)
-                    else
-                        warn("⚠ Objeto selecionado, mas o assento específico desta instância não foi localizado.")
-                    end
                 end
-            else
-                print("♻️ Seleção limpa.")
-                objetosSelecionados = {}
-                tool.Name = "SELECT MATTER V3"
-                if conexaoAtaque then conexaoAtaque:Disconnect() end
+                -- Clicar em partes estáticas do mapa (chão/paredes) não limpa os objetos já selecionados.
+                -- Para cancelar e limpar a seleção, basta clicar novamente no botão da Tool UI.
             end
         end
     end
 end)
 
-tool.Unequipped:Connect(function()
-    if conexaoAtaque then conexaoAtaque:Disconnect() end
-    objetosSelecionados = {}
-    tool.Name = "SELECT MATTER V3"
-end)
+-- --- REGISTRO NO ADAPTADOR ---
+_G.ScriptAdapter = _G.ScriptAdapter or {}
+_G.ScriptAdapter.Queue = _G.ScriptAdapter.Queue or {}
+
+local toolData = {
+    Id = "SelectMatterV4_Tool",
+    ButtonUI = actionButton,
+    OnEquip = function()
+        modoAtivo = true
+        actionButton.BackgroundTransparency = 0.45
+    end,
+    OnUnequip = function()
+        resetarEstado()
+    end
+}
+
+if _G.ScriptAdapter and _G.ScriptAdapter.RegisterTool then
+    _G.ScriptAdapter:RegisterTool(toolData)
+else
+    table.insert(_G.ScriptAdapter.Queue, toolData)
+end
