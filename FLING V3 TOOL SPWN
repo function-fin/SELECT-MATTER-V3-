@@ -5,6 +5,7 @@ local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local lp = Players.LocalPlayer
 local character = lp.Character or lp.CharacterAdded:Wait()
@@ -29,6 +30,22 @@ if sethp then
                 sethp(lp, "MaxSimulationRadius", 1e30)
             end)
         end)
+    end)
+end
+
+-- --- FUNÇÃO PARA APAGAR VEÍCULOS VIA REMOTE ---
+local function deletarVeiculosRemoto()
+    pcall(function()
+        local args1 = {
+            [1] = "uiInteraction",
+            [2] = {["buttonName"] = "VehicleHudButton", ["inVehicle"] = false}
+        }
+        ReplicatedStorage.Remotes.TelemetryClientInteraction:FireServer(unpack(args1))
+
+        local args2 = {
+            [1] = "DeleteAllVehicles"
+        }
+        ReplicatedStorage.RE["1Ca1r"]:FireServer(unpack(args2))
     end)
 end
 
@@ -97,7 +114,7 @@ local function aplicarMotoresFling(corpo)
     corpo.CanCollide = true
     corpo.Massless = false
     corpo.CustomPhysicalProperties = PhysicalProperties.new(100, 100, 0, 100, 100)
-    
+
     local forcaMassiva = Vector3.new(math.huge * math.huge, math.huge * math.huge, math.huge * math.huge)
 
     local velocity = Instance.new("BodyVelocity")
@@ -129,7 +146,7 @@ local function executarBypassNetworkOwnership(assentoAlvo)
     meuHum.Sit = false
     meuHum.Jump = true
     meuHRP.CFrame = assentoAlvo.CFrame + Vector3.new(0, 8, 0) 
-    
+
     task.wait(0.3) 
 
     meuHRP.CFrame = posicaoOriginal
@@ -160,6 +177,11 @@ local function iniciarAtaqueMassa(alvoPlayer)
             end
         end
     end
+
+    -- Dispara a deleção dos veículos exatamente 0.25 segundos após o lançamento
+    task.delay(0.25, function()
+        deletarVeiculosRemoto()
+    end)
 
     local partesAlvo = {"HumanoidRootPart", "Head", "LowerTorso"}
     local indexParte = 1
@@ -256,7 +278,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
                     end
                 end
 
-            -- CASO 2: Clicar em objetos/veículos físicos (Adicionar à lista sem cancelar seleção anterior)
+            -- CASO 2: Clicar em objetos/veículos físicos
             else
                 local alvoFisico = nil
                 local modeloVeiculo = hitPart:FindFirstAncestorOfClass("Model") or hitPart
@@ -280,7 +302,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
                         if modeloVeiculo then
                             assentoEncontrado = modeloVeiculo:FindFirstChildOfClass("VehicleSeat") or modeloVeiculo:FindFirstChild("PilotSeat", true)
                         end
-                        
+
                         if not assentoEncontrado and hitPart:FindFirstAncestor("Helicopters") then
                             local modeloPaiDireto = hitPart:FindFirstAncestor("ChinookRescue") or hitPart.Parent
                             if modeloPaiDireto then
@@ -293,8 +315,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
                         end
                     end
                 end
-                -- Clicar em partes estáticas do mapa (chão/paredes) não limpa os objetos já selecionados.
-                -- Para cancelar e limpar a seleção, basta clicar novamente no botão da Tool UI.
             end
         end
     end
