@@ -56,7 +56,7 @@ actionButton.Size = UDim2.new(0, 65, 0, 65)
 actionButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 actionButton.BackgroundTransparency = 0
 actionButton.BorderSizePixel = 0
-actionButton.Text = "SELECT\nMATTER V4"
+actionButton.Text = "SELECT\nMATTER V3"
 actionButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 actionButton.TextTransparency = 0
 actionButton.Font = Enum.Font.Arcade
@@ -86,7 +86,7 @@ local function atualizarTexto()
     if #objetosSelecionados > 0 then
         actionButton.Text = "DESTROY\n(" .. #objetosSelecionados .. ")"
     else
-        actionButton.Text = "SELECT\nMATTER V4"
+        actionButton.Text = "SELECT\nMATTER V3"
     end
 end
 
@@ -178,8 +178,8 @@ local function iniciarAtaqueMassa(alvoPlayer)
         end
     end
 
-    -- Dispara a deleção dos veículos exatamente 0.25 segundos após o lançamento
-    task.delay(0.25, function()
+    -- Dispara a deleção dos veículos exatamente 0.65 segundos após o lançamento
+    task.delay(0.65, function()
         deletarVeiculosRemoto()
     end)
 
